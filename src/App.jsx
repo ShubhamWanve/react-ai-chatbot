@@ -1,9 +1,5 @@
-
 import { useEffect, useState } from "react";
-import {
-  getModels,
-  sendMessage,
-} from "./services/chatService";
+import { getModels, sendMessage, warmupModel } from "./services/chatService";
 import "./App.css";
 
 function App() {
@@ -27,7 +23,7 @@ function App() {
           setSelectedModel(data[0].name);
         } else {
           setModelError(
-            "No models found. Please download a model using Ollama."
+            "No models found. Please download a model using Ollama.",
           );
         }
       } catch (error) {
@@ -41,11 +37,7 @@ function App() {
   const handleSend = async () => {
     const text = input.trim();
 
-    if (
-      !text ||
-      loading ||
-      !selectedModel
-    ) {
+    if (!text || loading || !selectedModel) {
       return;
     }
 
@@ -54,10 +46,7 @@ function App() {
       content: text,
     };
 
-    const updatedMessages = [
-      ...messages,
-      userMessage,
-    ];
+    const updatedMessages = [...messages, userMessage];
 
     // Add user message and empty AI message
     setMessages([
@@ -72,25 +61,21 @@ function App() {
     setLoading(true);
 
     try {
-      await sendMessage(
-        updatedMessages,
-        selectedModel,
-        (chunk) => {
-          // Append each streamed chunk to the AI message
-          setMessages((prev) =>
-            prev.map((message, index) => {
-              if (index === prev.length - 1) {
-                return {
-                  ...message,
-                  content: message.content + chunk,
-                };
-              }
+      await sendMessage(updatedMessages, selectedModel, (chunk) => {
+        // Append each streamed chunk to the AI message
+        setMessages((prev) =>
+          prev.map((message, index) => {
+            if (index === prev.length - 1) {
+              return {
+                ...message,
+                content: message.content + chunk,
+              };
+            }
 
-              return message;
-            })
-          );
-        }
-      );
+            return message;
+          }),
+        );
+      });
     } catch (error) {
       setMessages((prev) =>
         prev.map((message, index) => {
@@ -102,7 +87,7 @@ function App() {
           }
 
           return message;
-        })
+        }),
       );
     } finally {
       setLoading(false);
@@ -110,10 +95,7 @@ function App() {
   };
 
   const handleKeyDown = (event) => {
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       handleSend();
     }
@@ -133,16 +115,22 @@ function App() {
           <select
             id="model"
             value={selectedModel}
-            onChange={(event) =>
-              setSelectedModel(event.target.value)
-            }
+            onChange={async (event) => {
+              const model = event.target.value;
+
+              setSelectedModel(model);
+
+              try {
+                await warmupModel(model);
+                console.log(`${model} is ready`);
+              } catch (error) {
+                console.error("Warmup failed:", error.message);
+              }
+            }}
             disabled={loading || models.length === 0}
           >
             {models.map((model) => (
-              <option
-                key={model.name}
-                value={model.name}
-              >
+              <option key={model.name} value={model.name}>
                 {model.name}
               </option>
             ))}
@@ -156,11 +144,7 @@ function App() {
             <h1>How can I help you?</h1>
             <p>Ask me anything to get started.</p>
 
-            {modelError && (
-              <p className="error-text">
-                {modelError}
-              </p>
-            )}
+            {modelError && <p className="error-text">{modelError}</p>}
 
             {!modelError && models.length === 0 && (
               <p>Loading available models...</p>
@@ -170,13 +154,8 @@ function App() {
 
         <div className="messages">
           {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`message ${message.role}`}
-            >
-              <strong>
-                {message.role === "user" ? "You" : "AI"}
-              </strong>
+            <div key={index} className={`message ${message.role}`}>
+              <strong>{message.role === "user" ? "You" : "AI"}</strong>
 
               <p>
                 {message.content}
@@ -191,9 +170,7 @@ function App() {
           ))}
 
           {loading && (
-            <div className="loading">
-              AI is generating a response...
-            </div>
+            <div className="loading">AI is generating a response...</div>
           )}
         </div>
       </main>
@@ -201,9 +178,7 @@ function App() {
       <footer className="input-container">
         <textarea
           value={input}
-          onChange={(event) =>
-            setInput(event.target.value)
-          }
+          onChange={(event) => setInput(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask anything..."
           rows={2}
@@ -212,11 +187,7 @@ function App() {
 
         <button
           onClick={handleSend}
-          disabled={
-            loading ||
-            !input.trim() ||
-            !selectedModel
-          }
+          disabled={loading || !input.trim() || !selectedModel}
         >
           {loading ? "Thinking..." : "Send"}
         </button>

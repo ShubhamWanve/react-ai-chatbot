@@ -112,3 +112,22 @@ export const sendMessage = async (
     processEvent(buffer);
   }
 };
+
+export const warmupModel = async (model) => {
+  const response = await fetch(`${API_URL}/warmup`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ model }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Model loading failed");
+  }
+
+  return data;
+};
+
